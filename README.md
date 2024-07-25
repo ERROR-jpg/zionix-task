@@ -29,3 +29,6 @@ To deploy this project run
 ```bash
     npm run dev
 ```
+
+## Note
+To maintain easy cloning and testing on local haven't added env file but in a production or even test environment will make sure to use env files for api keys! 
