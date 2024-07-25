@@ -11,7 +11,8 @@ Zionix Assignment by Jaymin Rajgor
 
 **External Apis:**: Mouser, Element 14, Rutronik
 
-
+## Demo
+![ezgif-4-850720d972](https://github.com/user-attachments/assets/66bf39c8-4f04-4f57-8280-9045d8b89fe1)
 
 
 ## Deployment
