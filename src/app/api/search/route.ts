@@ -7,6 +7,7 @@ const EUR_TO_INR = 90;
 
 interface PriceBreak {
     Quantity: number;
+    quantity: number;
     Price: string;
     from: number;
     to: number;
@@ -20,7 +21,7 @@ const apiKeys = {
   rutronik: 'cc6qyfg2yfis',
 };
 
-function convertToINR(price: number, currency: string): number {
+export function convertToINR(price: number, currency: string): number {
   switch (currency.toUpperCase()) {
     case 'USD':
       return price * USD_TO_INR;
@@ -35,39 +36,45 @@ function convertToINR(price: number, currency: string): number {
 }
 
 async function searchMouser(partNumber: string, volume: number): Promise<PartResult | null> {
-    try {
-      const response = await axios.post(
-        `https://api.mouser.com/api/v1/search/partnumber?apiKey=${apiKeys.mouser}`,
-        {
-          SearchByPartRequest: {
-            mouserPartNumber: partNumber,
-            partSearchOptions: "string"
-          }
+  try {
+    const response = await axios.post(
+      `https://api.mouser.com/api/v1/search/partnumber?apiKey=${apiKeys.mouser}`,
+      {
+        SearchByPartRequest: {
+          mouserPartNumber: partNumber,
+          partSearchOptions: "string"
         }
-      );
-  
-      const part = response.data.SearchResults.Parts[0];
-      if (!part) return null;
-  
-      const priceBreak = part.PriceBreaks.reduce((prev: PriceBreak, current: PriceBreak) => {
-        return (current.Quantity <= volume && current.Quantity > prev.Quantity) ? current : prev;
-      });
-  
-      const unitPrice = parseFloat(priceBreak.Price.replace(/[^\d.-]/g, ''));
-  
-      return {
-        partNumber,
-        manufacturer: part.Manufacturer,
-        dataProvider: 'Mouser',
-        volume,
-        unitPrice,
-        totalPrice: unitPrice * volume,
-      };
-    } catch (error) {
-      console.error('Error searching Mouser:', error);
-      return null;
-    }
+      }
+    );
+
+    const part = response.data.SearchResults.Parts[0];
+    if (!part) return null;
+
+    const priceBreaks = part.PriceBreaks.map((pb: any) => ({
+      Quantity: parseInt(pb.Quantity),
+      Price: pb.Price.replace(/[^\d.]/g, ''),  
+    }));
+
+    const priceBreak = priceBreaks.reduce((prev: PriceBreak, current: PriceBreak) => {
+      return (current.Quantity <= volume && current.Quantity > prev.Quantity) ? current : prev;
+    }, { Quantity: 0, Price: '0' });
+
+    const unitPrice = parseFloat(priceBreak.Price);
+
+    return {
+      partNumber,
+      manufacturer: part.Manufacturer,
+      dataProvider: 'Mouser',
+      volume,
+      unitPrice,
+      totalPrice: unitPrice * volume,
+      priceBreaks,
+    };
+  } catch (error) {
+    console.error('Error searching Mouser:', error);
+    return null;
   }
+}
 
   async function searchElement14(partNumber: string, volume: number): Promise<PartResult | null> {
     try {
@@ -93,7 +100,7 @@ async function searchMouser(partNumber: string, volume: number): Promise<PartRes
         return (current.from <= volume && current.from > prev.from) ? current : prev;
       });
   
-      const unitPriceOriginal = parseFloat(priceBreak.cost);
+      const unitPriceOriginal = (priceBreak.cost);
       const unitPriceINR =  convertToINR(unitPriceOriginal, 'INR');
       return {
         partNumber,
@@ -102,6 +109,7 @@ async function searchMouser(partNumber: string, volume: number): Promise<PartRes
         volume,
         unitPrice: unitPriceINR,
         totalPrice: unitPriceINR * volume,
+        priceBreaks: part.prices,
       };
     } catch (error) {
       console.error('Error searching Element14:', error);
@@ -110,7 +118,7 @@ async function searchMouser(partNumber: string, volume: number): Promise<PartRes
   }
 
 
-async function searchRutronik(partNumber: string, volume: number): Promise<PartResult | null> {
+  async function searchRutronik(partNumber: string, volume: number): Promise<PartResult | null> {
     try {
       const response = await axios.get('https://www.rutronik24.com/api/search/', {
         params: {
@@ -122,12 +130,26 @@ async function searchRutronik(partNumber: string, volume: number): Promise<PartR
       const part = response.data[0];
       if (!part) return null;
   
-      const priceBreak = part.pricebreaks.reduce((prev: PriceBreak, current: PriceBreak) => {
-        return (current.Quantity <= volume && current.Quantity > prev.Quantity) ? current : prev;
-      });
+      console.log(part);
+  
+      
+      const sortedPriceBreaks = part.pricebreaks.sort((a: PriceBreak, b: PriceBreak) => a.quantity - b.quantity);
+      console.log(sortedPriceBreaks);
+  
+     
+      let priceBreak = sortedPriceBreaks[0]; 
+      for (const pb of sortedPriceBreaks) {
+        if (volume >= pb.quantity) {
+          priceBreak = pb;
+        } else {
+          break;
+        }
+      }
+  
+      console.log(priceBreak);
   
       const unitPriceEUR = parseFloat(priceBreak.price);
-      const unitPriceINR = await convertToINR(unitPriceEUR, 'EUR');
+      const unitPriceINR = convertToINR(unitPriceEUR, 'EUR');
   
       return {
         partNumber,
@@ -136,12 +158,14 @@ async function searchRutronik(partNumber: string, volume: number): Promise<PartR
         volume,
         unitPrice: unitPriceINR,
         totalPrice: unitPriceINR * volume,
+        priceBreaks: part.pricebreaks,
       };
     } catch (error) {
       console.error('Error searching Rutronik:', error);
       return null;
     }
   }
+  
 
 export async function POST(request: NextRequest) {
   try {
@@ -154,7 +178,7 @@ export async function POST(request: NextRequest) {
     const results = await Promise.all([
       searchMouser(partNumber, volume),
       searchElement14(partNumber, volume),
-      searchRutronik(partNumber, volume),
+      searchRutronik(partNumber, volume)
     ]);
 
     const validResults = results.filter((result): result is PartResult => result !== null);

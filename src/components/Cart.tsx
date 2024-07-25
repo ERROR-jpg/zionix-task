@@ -1,4 +1,3 @@
-'use client'; 
 import React from 'react';
 import {
   Drawer,
@@ -12,6 +11,7 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useCart } from '../contexts/CardContext';
+import { CartItem } from '../types';  // Adjust the import path as necessary
 
 interface CartProps {
   open: boolean;
@@ -20,7 +20,7 @@ interface CartProps {
 
 const Cart: React.FC<CartProps> = ({ open, onClose }) => {
   const { items, updateVolume, removeFromCart } = useCart();
-    
+   
   return (
     <Drawer anchor="right" open={open} onClose={onClose}>
       <Box sx={{ width: 400, p: 2 }}>
@@ -28,23 +28,23 @@ const Cart: React.FC<CartProps> = ({ open, onClose }) => {
           My Cart
         </Typography>
         <List>
-          {items.map((item: any) => (
+          {items.map((item: CartItem) => (
             <ListItem key={item.id} alignItems="flex-start">
               <ListItemText
                 primary={item.partNumber}
                 secondary={
                   <>
                     <Typography component="span" variant="body2" color="text.primary">
-                      {item.manufacturer} - {item.dataProvider}
-                    </Typography>
-                    <br />
-                    Unit Price: ₹{item.unitPrice?.toFixed(2) ?? 'N/A'}
-                    <br />
-                    Total: ₹{item.totalPrice?.toFixed(2) ?? 'N/A'}
+                    {item.manufacturer} - {item.dataProvider}
+                  </Typography>
+                  <br />
+                  Unit Price: ₹{item.unitPrice.toFixed(2)}
+                  <br />
+                  Total: ₹{item.totalPrice.toFixed(2)}
                   </>
                 }
               />
-              
+             
               <TextField
                 type="number"
                 value={item.volume}

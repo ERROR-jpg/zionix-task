@@ -24,7 +24,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   const handleAddToCart = (item: PartResult) => {
-    addToCart({ ...item, id: Math.random().toString(36).substr(2, 9) });
+    addToCart(item);
     setIsCartOpen(true);
   };
 
